@@ -34,7 +34,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ### 2. 克隆项目
 ```bash
-git clone https://github.com/YOUR_USERNAME/auto-batch-rename-volumes.git
+git clone https://github.com/bird2iland/auto-batch-rename-volumes.git
 cd auto-batch-rename-volumes
 ```
 
