@@ -367,6 +367,10 @@ class CLIHandler:
             console.print("\n[bold red]Monitoring Mode Stopped.[/bold red]")
 
 def main():
+    # 确保日志文件存在
+    if not LOG_FILE.exists():
+        LOG_FILE.touch()
+        
     renamer = VolumeRenamer(WhitelistManager(WHITELIST_FILE))
     cli = CLIHandler(renamer)
     
@@ -374,7 +378,7 @@ def main():
         '1': lambda: cli.run_rename_pipeline(renamer.get_external_volumes()),
         '2': cli.monitor_mode,
         '3': cli.manage_whitelist,
-        '4': lambda: console.print(Rule("History Log", style="cyan"), Panel(LOG_FILE.read_text())) if LOG_FILE.exists() else console.print("[yellow]No log file found.[/yellow]")
+        '4': lambda: console.print(Rule("History Log", style="cyan"), Panel(LOG_FILE.read_text() if LOG_FILE.stat().st_size > 0 else "[dim italic]No history recorded yet.[/dim italic]")) if LOG_FILE.exists() else console.print("[yellow]No log file found.[/yellow]")
     }
 
     while True:
