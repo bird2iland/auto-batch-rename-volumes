@@ -24,16 +24,22 @@ SYSTEM_VOLUMES_BLACKLIST = {'Macintosh HD', 'Preboot', 'Recovery', 'VM', 'Update
 # 初始化 Rich Console
 console = Console()
 
-# 设置日志，使用 RichHandler 替代传统 Handler
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    datefmt="[%X]",
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        RichHandler(console=console, rich_tracebacks=True)
-    ]
-)
+# 设置日志，强制覆盖旧配置并确保 handlers 正确加载
+def setup_logging():
+    # 强制清理旧的 handlers (防止在某些环境下重复或失效)
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+        
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="[%Y-%m-%d %X]",
+        handlers=[
+            logging.FileHandler(LOG_FILE, mode='a', encoding='utf-8'),
+            RichHandler(console=console, rich_tracebacks=True, show_path=False)
+        ],
+        force=True # 强制覆盖任何现有的日志配置
+    )
 
 @dataclass(frozen=True)
 class VolumeInfo:
@@ -370,6 +376,9 @@ def main():
     # 确保日志文件存在
     if not LOG_FILE.exists():
         LOG_FILE.touch()
+    
+    # 初始化日志配置
+    setup_logging()
         
     renamer = VolumeRenamer(WhitelistManager(WHITELIST_FILE))
     cli = CLIHandler(renamer)
