@@ -132,6 +132,8 @@ class VolumeRenamer:
                 console.print(f"[dim]Refreshing mount for {vol.device_id}...[/dim]")
                 subprocess.run(['diskutil', 'unmount', vol.device_id], check=True, capture_output=True)
                 subprocess.run(['diskutil', 'mount', vol.device_id], check=True, capture_output=True)
+            
+            logging.info(f"Successfully renamed '{vol.name}' to '{new_name}' (Device: {vol.device_id})")
             return True
         except subprocess.CalledProcessError as e:
             logging.error(f"Rename failed for {vol.name}: {e.stderr.decode().strip()}")
@@ -352,6 +354,7 @@ class CLIHandler:
 
     def monitor_mode(self):
         console.print(Panel("[bold green]Real-time Monitoring Mode Started[/bold green]\nScanning for new volumes every 2 seconds...\n[dim]Press Ctrl+C to exit[/dim]", border_style="green"))
+        logging.info("Real-time Monitoring Mode started")
         
         known = {v.device_id for v in self.renamer.get_external_volumes() if v.device_id}
         try:
@@ -363,6 +366,7 @@ class CLIHandler:
                 if new_ids:
                     new_vols = [v for v in current if v.device_id in new_ids]
                     console.print(f"\n[bold yellow][!] Detected {len(new_vols)} new volume(s):[/bold yellow] {[v.name for v in new_vols]}")
+                    logging.info(f"Detected new volume(s): {[v.name for v in new_vols]}")
                     self.run_rename_pipeline(new_vols)
                     # 重新扫描以确保 ID 列表是最新的
                     known = {v.device_id for v in self.renamer.get_external_volumes() if v.device_id}
@@ -379,6 +383,7 @@ def main():
     
     # 初始化日志配置
     setup_logging()
+    logging.info("--- Program Started ---")
         
     renamer = VolumeRenamer(WhitelistManager(WHITELIST_FILE))
     cli = CLIHandler(renamer)
