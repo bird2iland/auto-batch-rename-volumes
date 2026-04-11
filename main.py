@@ -47,6 +47,7 @@ class VolumeInfo:
     name: str
     path: Path
     device_id: Optional[str]
+    uuid: Optional[str] # 增加 UUID 字段
 
     def __str__(self):
         return f"{self.name} ([dim]{self.path}[/dim])"
@@ -72,21 +73,24 @@ class WhitelistManager:
             logging.error(f"Failed to save whitelist: {e}")
 
     def add(self, vol: VolumeInfo):
-        if vol.device_id:
-            self.whitelist[vol.device_id] = vol.name
+        # 优先使用永久 UUID，如果没有（如某些特殊分区）则回退到 device_id
+        key = vol.uuid or vol.device_id
+        if key:
+            self.whitelist[key] = vol.name
             self.save()
 
-    def remove(self, device_id: str):
-        if device_id in self.whitelist:
-            del self.whitelist[device_id]
+    def remove(self, key: str):
+        if key in self.whitelist:
+            del self.whitelist[key]
             self.save()
 
     def clear(self):
         self.whitelist.clear()
         self.save()
 
-    def contains(self, device_id: Optional[str]) -> bool:
-        return device_id in self.whitelist if device_id else False
+    def contains(self, vol: VolumeInfo) -> bool:
+        # 检查 UUID 或 device_id 是否在白名单中
+        return (vol.uuid in self.whitelist) or (vol.device_id in self.whitelist)
 
 class VolumeRenamer:
     """核心重命名管线"""
@@ -115,10 +119,17 @@ class VolumeRenamer:
                         if match := re.search(r'Device Identifier:\s+(\w+)', output):
                             device_id = match.group(1)
                         
-                        if not include_whitelisted and self.whitelist_mgr.contains(device_id):
+                        # 提取永久 UUID
+                        uuid = None
+                        if match_uuid := re.search(r'Volume UUID:\s+([A-F0-9-]+)', output):
+                            uuid = match_uuid.group(1)
+                        
+                        vol_info = VolumeInfo(name=item.name, path=item, device_id=device_id, uuid=uuid)
+                        
+                        if not include_whitelisted and self.whitelist_mgr.contains(vol_info):
                             continue
                             
-                        volumes.append(VolumeInfo(name=item.name, path=item, device_id=device_id))
+                        volumes.append(vol_info)
                 except subprocess.CalledProcessError:
                     continue
         return volumes
@@ -227,8 +238,8 @@ class CLIHandler:
                 table.add_column("Status")
                 
                 for i, v in enumerate(vols):
-                    status = "[bold yellow]Whitelisted[/bold yellow]" if self.renamer.whitelist_mgr.contains(v.device_id) else ""
-                    table.add_row(str(i+1), v.name, v.device_id or "N/A", status)
+                    status = "[bold yellow]Whitelisted[/bold yellow]" if self.renamer.whitelist_mgr.contains(v) else ""
+                    table.add_row(str(i+1), v.name, v.uuid or v.device_id or "N/A", status)
                 console.print(table)
 
                 sel = Prompt.ask("\nEnter numbers to add (e.g. 1, 1-2, all, 0 to cancel)")
